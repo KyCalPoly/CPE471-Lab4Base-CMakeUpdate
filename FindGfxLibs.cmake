@@ -28,7 +28,7 @@ function(_findGLFW3_vsbinary target)
         message(FATAL_ERROR "Visual Studio version is less than minimum (VS 2015)")
     endif()
 
-    set(GLFW_LIBRARIES glfw PARENT_SCOPE)
+    set(GLFW_LIBRARIES ${GLFW_LIBRARIES} PARENT_SCOPE)
     message(STATUS "Set GLFW_LIBRARIES: ${GLFW_LIBRARIES}")
 
 endfunction(_findGLFW3_vsbinary)
