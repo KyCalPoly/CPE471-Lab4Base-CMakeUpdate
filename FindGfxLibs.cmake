@@ -1,4 +1,95 @@
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.10)
+include(CheckIncludeFileCXX)
+
+# Find and add GLFW3 using find_package or environment variable 
+# Exports varaibles GLFW_LIBRARIES and GLFW_INCLUDE_DIRS which can be
+# used for includes and linking. GLFW_INCLUDE_DIRS may be empty, and 
+# should indicate that the include files are located in a standard 
+# include location. 
+function(findGLFW3 target)
+
+    find_package(glfw3 QUIET)
+
+    if(glfw3_FOUND)
+
+        assert_target(glfw)
+        # Include paths are added automatically when linking the glfw3 target from find_package()
+        set(GLFW_LIBRARIES glfw)
+        set(GLFW_INCLUDE_DIRS "")
+
+    elseif(DEFINED ENV{GLFW_DIR})
+
+        set(GLFW_DIR "$ENV{GLFW_DIR}")
+        message(STATUS "GLFW environment variable found. Attempting use...")
+
+        if(NOT EXISTS "${GLFW_DIR}/CMakeLists.txt" AND WIN32)
+            _findGLFW3_vsbinary(target) 
+        elseif(EXISTS "${GLFW_DIR}/CMakeLists.txt")
+            _findGLFW3_sourcepkg(target)
+        else()
+            message(FATAL_ERROR "GLFW environment variable 'GLFW_DIR' found, but points to a directory which is not a source package containing 'CMakeLists.txt'.")
+        endif()
+
+        if(NOT GLFW_LIBRARIES)
+            message(FATAL_ERROR "Internal Error! GLFW_LIBRARIES variable did not get set! Contact your TA, this is their fault.")
+        endif()
+
+    else()
+        message(FATAL_ERROR "glfw3 could not be found through find_package or environment varaible 'GLFW_DIR'! glfw3 must be installed!")
+    endif()
+
+
+    assert_defined(GLFW_LIBRARIES)
+    assert_defined(GLFW_INCLUDE_DIRS)
+    # Export GLFW_LIBRARIES variable to parent scope 
+    set(GLFW_LIBRARIES ${GLFW_LIBRARIES} PARENT_SCOPE)
+    set(GLFW_INCLUDE_DIRS ${GLFW_INCLUDE_DIRS} PARENT_SCOPE)
+
+    # If a valid target is given link glfw to the target
+    if(TARGET ${target})
+        if(NOT GLFW_INCLUDE_DIRS STREQUAL "")
+            target_include_directories(${target} PUBLIC ${GLFW_INCLUDE_DIRS})
+        endif()
+        target_link_libraries(${target} ${GLFW_LIBRARIES})
+    endif()
+
+endfunction(findGLFW3)
+
+# Find and add GLM using find_package or environment variable
+# MAY export variable GLM_INCLUDE_DIRS if include directory(s) were 
+# found somewhere other than a default include location. 
+function(findGLM target)
+
+    find_package(glm QUIET)
+
+    if(NOT glm_FOUND)
+
+        set(GLM_INCLUDE_DIRS "$ENV{GLM_INCLUDE_DIR}")
+        if(NOT GLM_INCLUDE_DIRS)
+
+            # Attempt to verify that glm headers are already visible to the compiler. 
+            CHECK_INCLUDE_FILE_CXX("glm/glm.hpp" GLM_HEADER_FOUND)
+            if(NOT GLM_HEADER_FOUND)
+                message(WARNING "glm installation could not be verified. Builds will likely fail!")
+                return()
+            endif()
+
+        endif()
+
+    endif()
+
+    if(GLM_INCLUDE_DIRS)
+        set(GLM_INCLUDE_DIRS ${GLM_INCLUDE_DIRS} PARENT_SCOPE)
+        target_include_directories(${target} PUBLIC "${GLM_INCLUDE_DIRS}")
+    endif()
+    
+endfunction(findGLM)
+
+
+
+# # # # # # # # # # #
+# Helper functions  # 
+# # # # # # # # # # #
 
 # findGLFW helper function
 function(_findGLFW3_vsbinary target)
@@ -8,8 +99,6 @@ function(_findGLFW3_vsbinary target)
     if(NOT GLFW_VC_LIB_DIRS)
         message(FATAL_ERROR "GLFW_DIR contains neither a CMakeLists.txt nor pre-compiled libraries for visual studio")
     endif()
-
-    set(GLFW_INCLUDE_DIRS "${GLFW_DIR}/include/")
 
     function(addMSVCPreCompiled version)
         if(NOT EXISTS "${GLFW_DIR}/lib-vc${version}/glfw3.lib")
@@ -35,8 +124,10 @@ function(_findGLFW3_vsbinary target)
     if(NOT GLFW_LIBRARIES)
         message(FATAL_ERROR "No usable pre-compiled glfw3 library could be found in given directory!")
     endif()
+
     set(GLFW_LIBRARIES ${GLFW_LIBRARIES} PARENT_SCOPE)
-    message(STATUS "Set GLFW_LIBRARIES: ${GLFW_LIBRARIES}")
+    set(GLFW_INCLUDE_DIRS "${GLFW_DIR}/include" PARENT_SCOPE)
+    message(STATUS "VS pre-compiled binary search set GLFW_LIBRARIES: ${GLFW_LIBRARIES}")
 
 endfunction(_findGLFW3_vsbinary)
 
@@ -54,60 +145,18 @@ function(_findGLFW3_sourcepkg target)
     endif()
 
     set(GLFW_LIBRARIES glfw PARENT_SCOPE)
+    set(GLFW_INCLUDE_DIRS "${GLFW_DIR}/include" PARENT_SCOPE)
 
 endfunction(_findGLFW3_sourcepkg)
 
-
-# Find and add GLFW3 using find_package or environment variable 
-function(findGLFW3 target)
-
-    find_package(glfw3 QUIET)
-
-    if(glfw3_FOUND)
-
-        # Include paths are added automatically by the glfw3 find_package
-        target_link_libraries(${CMAKE_PROJECT_NAME} glfw)
-
-    elseif(DEFINED ENV{GLFW_DIR})
-
-        set(GLFW_DIR "$ENV{GLFW_DIR}")
-        message(STATUS "GLFW environment variable found. Attempting use...")
-
-        if(NOT EXISTS "${GLFW_DIR}/CMakeLists.txt" AND WIN32)
-            _findGLFW3_vsbinary(target) 
-        elseif(EXISTS "${GLFW_DIR}/CMakeLists.txt")
-            _findGLFW3_sourcepkg(target)
-        else()
-            message(FATAL_ERROR "GLFW environment variable 'GLFW_DIR' found, but points to a directory which is not a source package containing 'CMakeLists.txt'.")
-        endif()
-
-        if(GLFW_LIBRARIES)
-            target_include_directories(${target} PUBLIC "${GLFW_DIR}/include")
-            target_link_libraries(${target} "${GLFW_LIBRARIES}")
-        else()
-            message(FATAL_ERROR "Internal Error! GLFW_LIBRARIES variable did not get set! Contact your TA, this is their fault.")
-        endif()
-
-    else()
-        message(FATAL_ERROR "glfw3 could not be found through find_package or environment varaible 'GLFW_DIR'! glfw3 must be installed!")
+function(assert_target target)
+    if(NOT TARGET ${target})
+        message(FATAL_ERROR "assert_target failed on ${target}")
     endif()
+endfunction(assert_target)
 
-endfunction(findGLFW3)
-
-# Find and add GLM using find_package or environment variable 
-function(findGLM target)
-
-    find_package(glm QUIET)
-
-    if(NOT glm_FOUND)
-        set(GLM_INCLUDE_DIRS "$ENV{GLM_INCLUDE_DIR}")
-        if(NOT GLM_INCLUDE_DIRS)
-            message(WARNING "glm could not be found through find_package or environment variable 'GLM_INCLUDE_DIR'! glm must be installed!")
-            return()
-        endif()
+function(assert_defined var)
+    if(NOT DEFINED ${var})
+        message(FATAL_ERROR "assert_defined failed on ${var}")
     endif()
-
-    target_include_directories(${target} PUBLIC "${GLM_INCLUDE_DIRS}")
-    
-endfunction(findGLM)
-
+endfunction(assert_defined)

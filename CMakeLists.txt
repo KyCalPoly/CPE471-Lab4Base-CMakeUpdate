@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.10)
 include("${CMAKE_SOURCE_DIR}/FindGfxLibs.cmake")
 
 # Name of the project
@@ -22,9 +22,9 @@ include_directories("ext/glad/include")
 # Set the executable.
 add_executable(${CMAKE_PROJECT_NAME} ${SOURCES} ${HEADERS} ${GLSL})
 
-# Helper function included from FindGfxLibs.cmake
-findGLFW3(${CMAKE_PROJECT_NAME})
+# Helper functions included from FindGfxLibs.cmake
 findGLM(${CMAKE_PROJECT_NAME})
+findGLFW3(${CMAKE_PROJECT_NAME})
 
 # OS specific options and libraries
 if(NOT WIN32)
